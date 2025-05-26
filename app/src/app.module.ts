@@ -5,12 +5,14 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './apps/users/users.module';
 import { getDatabaseConfig } from './infra/database/database.config';
+import { appConfig, paginationConfig } from './shared/config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      load: [appConfig, paginationConfig],
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],

@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const user_service_1 = require("../../../shared/services/user.service");
 const create_user_dto_1 = require("../dto/create-user.dto");
 const update_user_dto_1 = require("../dto/update-user.dto");
+const common_2 = require("../../../common");
 let UserController = class UserController {
     constructor(userService) {
         this.userService = userService;
@@ -24,8 +25,14 @@ let UserController = class UserController {
     create(createUserDto) {
         return this.userService.create(createUserDto);
     }
+    findAllPaginated(pagination) {
+        return this.userService.findAllPaginated(pagination);
+    }
     findAll() {
         return this.userService.findAll();
+    }
+    findActiveUsers() {
+        return this.userService.findActiveUsers();
     }
     findOne(id) {
         return this.userService.findById(id);
@@ -35,9 +42,6 @@ let UserController = class UserController {
     }
     remove(id) {
         return this.userService.delete(id);
-    }
-    findActiveUsers() {
-        return this.userService.findActiveUsers();
     }
 };
 exports.UserController = UserController;
@@ -51,10 +55,25 @@ __decorate([
 ], UserController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, common_1.UseGuards)(common_2.ValidationGuard),
+    (0, common_2.ApiPaginatedResponse)(),
+    __param(0, (0, common_2.Pagination)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], UserController.prototype, "findAllPaginated", null);
+__decorate([
+    (0, common_1.Get)('all'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('status/active'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], UserController.prototype, "findActiveUsers", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
@@ -78,14 +97,9 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "remove", null);
-__decorate([
-    (0, common_1.Get)('status/active'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
-], UserController.prototype, "findActiveUsers", null);
 exports.UserController = UserController = __decorate([
     (0, common_1.Controller)('users'),
+    (0, common_2.ApiLoggedResponse)(),
     __metadata("design:paramtypes", [user_service_1.UserService])
 ], UserController);
 //# sourceMappingURL=user.controller.js.map

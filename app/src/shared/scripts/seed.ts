@@ -1,8 +1,10 @@
 import { NestFactory } from '@nestjs/core';
+import { Logger } from '@nestjs/common';
 import { AppModule } from '../../app.module';
 import { UserService } from '../services/user.service';
 
 async function seed() {
+  const logger = new Logger('DatabaseSeed');
   const app = await NestFactory.createApplicationContext(AppModule);
   const userService = app.get(UserService);
 
@@ -25,24 +27,25 @@ async function seed() {
     },
   ];
 
-  console.log('🌱 Starting database seeding...');
+  logger.log('🌱 Starting database seeding...');
 
   for (const userData of users) {
     try {
       const user = await userService.create(userData);
-      console.log(`✅ Created user: ${user.name} (${user.email})`);
+      logger.log(`✅ Created user: ${user.name} (${user.email})`);
     } catch (error) {
-      console.log(
+      logger.warn(
         `⚠️  User ${userData.email} already exists or error occurred`,
       );
     }
   }
 
-  console.log('🎉 Database seeding completed!');
+  logger.log('🎉 Database seeding completed!');
   await app.close();
 }
 
 seed().catch((error) => {
-  console.error('❌ Seeding failed:', error);
+  const logger = new Logger('DatabaseSeed');
+  logger.error('❌ Seeding failed:', error);
   process.exit(1);
 });

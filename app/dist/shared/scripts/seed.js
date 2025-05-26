@@ -1,9 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const core_1 = require("@nestjs/core");
+const common_1 = require("@nestjs/common");
 const app_module_1 = require("../../app.module");
 const user_service_1 = require("../services/user.service");
 async function seed() {
+    const logger = new common_1.Logger('DatabaseSeed');
     const app = await core_1.NestFactory.createApplicationContext(app_module_1.AppModule);
     const userService = app.get(user_service_1.UserService);
     const users = [
@@ -24,21 +26,22 @@ async function seed() {
             email: 'ana@example.com',
         },
     ];
-    console.log('🌱 Starting database seeding...');
+    logger.log('🌱 Starting database seeding...');
     for (const userData of users) {
         try {
             const user = await userService.create(userData);
-            console.log(`✅ Created user: ${user.name} (${user.email})`);
+            logger.log(`✅ Created user: ${user.name} (${user.email})`);
         }
         catch (error) {
-            console.log(`⚠️  User ${userData.email} already exists or error occurred`);
+            logger.warn(`⚠️  User ${userData.email} already exists or error occurred`);
         }
     }
-    console.log('🎉 Database seeding completed!');
+    logger.log('🎉 Database seeding completed!');
     await app.close();
 }
 seed().catch((error) => {
-    console.error('❌ Seeding failed:', error);
+    const logger = new common_1.Logger('DatabaseSeed');
+    logger.error('❌ Seeding failed:', error);
     process.exit(1);
 });
 //# sourceMappingURL=seed.js.map

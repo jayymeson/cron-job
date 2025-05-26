@@ -9,12 +9,21 @@ import {
   HttpCode,
   HttpStatus,
   ValidationPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { UserService } from '../../../shared/services/user.service';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
+import {
+  Pagination,
+  ValidationGuard,
+  ApiPaginatedResponse,
+  ApiLoggedResponse,
+  PaginationQuery,
+} from '../../../common';
 
 @Controller('users')
+@ApiLoggedResponse()
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
@@ -25,8 +34,20 @@ export class UserController {
   }
 
   @Get()
+  @UseGuards(ValidationGuard)
+  @ApiPaginatedResponse()
+  findAllPaginated(@Pagination() pagination: PaginationQuery) {
+    return this.userService.findAllPaginated(pagination);
+  }
+
+  @Get('all')
   findAll() {
     return this.userService.findAll();
+  }
+
+  @Get('status/active')
+  findActiveUsers() {
+    return this.userService.findActiveUsers();
   }
 
   @Get(':id')
@@ -46,10 +67,5 @@ export class UserController {
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     return this.userService.delete(id);
-  }
-
-  @Get('status/active')
-  findActiveUsers() {
-    return this.userService.findActiveUsers();
   }
 }

@@ -19,8 +19,14 @@ Content-Type: application/json
   "email": "maria@example.com"
 }
 
-### Get All Users
+### Get All Users (Paginated) - Default
 GET http://localhost:3000/users
+
+### Get All Users (Paginated) - With Parameters
+GET http://localhost:3000/users?page=1&limit=5
+
+### Get All Users (No Pagination)
+GET http://localhost:3000/users/all
 
 ### Get User by ID (replace with actual ID)
 GET http://localhost:3000/users/{{userId}}
@@ -38,4 +44,10 @@ Content-Type: application/json
 }
 
 ### Delete User (replace with actual ID)
-DELETE http://localhost:3000/users/{{userId}} 
+DELETE http://localhost:3000/users/{{userId}}
+
+### Test Pagination Validation - Invalid Page
+GET http://localhost:3000/users?page=0&limit=5
+
+### Test Pagination Validation - Invalid Limit
+GET http://localhost:3000/users?page=1&limit=150 

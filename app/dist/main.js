@@ -1,5 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const crypto_1 = require("crypto");
+if (!globalThis.crypto) {
+    globalThis.crypto = {
+        randomUUID: crypto_1.randomUUID,
+    };
+}
 const core_1 = require("@nestjs/core");
 const app_module_1 = require("./app.module");
 async function bootstrap() {
