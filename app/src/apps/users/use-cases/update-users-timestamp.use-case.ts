@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { SchedulerRegistry } from '@nestjs/schedule';
+import { CronExpression, SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { UserService } from '../../../shared/services/user.service';
 
@@ -12,8 +12,7 @@ export class UpdateUsersTimestampUseCase implements OnModuleInit {
     private readonly userService: UserService,
     private readonly schedulerRegistry: SchedulerRegistry,
   ) {
-    // Execute every 5 minutes
-    this.updateUsersJob = '*/5 * * * *';
+    this.updateUsersJob = CronExpression.EVERY_5_SECONDS;
   }
 
   async onModuleInit() {

@@ -58,7 +58,7 @@ export class UserService {
   }
 
   async delete(id: string): Promise<void> {
-    await this.findById(id); // Check if user exists
+    await this.findById(id);
     return this.userRepository.delete(id);
   }
 
@@ -67,7 +67,6 @@ export class UserService {
   }
 
   async updateTimestamp(user: User): Promise<User> {
-    // This method will be used by the cron job to update the updatedAt field
     return this.userRepository.update(user);
   }
 }

@@ -13,4 +13,5 @@ coverage
 .env.test.local
 .env.production.local
 logs
-*.log 
+*.log
+!health-check.cjs 
