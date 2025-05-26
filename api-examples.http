@@ -1,0 +1,41 @@
+### Health Check
+GET http://localhost:3000/health
+
+### Create User
+POST http://localhost:3000/users
+Content-Type: application/json
+
+{
+  "name": "João Silva",
+  "email": "joao@example.com"
+}
+
+### Create Another User
+POST http://localhost:3000/users
+Content-Type: application/json
+
+{
+  "name": "Maria Santos",
+  "email": "maria@example.com"
+}
+
+### Get All Users
+GET http://localhost:3000/users
+
+### Get User by ID (replace with actual ID)
+GET http://localhost:3000/users/{{userId}}
+
+### Get Active Users
+GET http://localhost:3000/users/status/active
+
+### Update User (replace with actual ID)
+PATCH http://localhost:3000/users/{{userId}}
+Content-Type: application/json
+
+{
+  "name": "João Silva Updated",
+  "isActive": true
+}
+
+### Delete User (replace with actual ID)
+DELETE http://localhost:3000/users/{{userId}} 
