@@ -11,16 +11,16 @@ import {
   ValidationPipe,
   UseGuards,
 } from '@nestjs/common';
-import { UserService } from '../../../shared/services/user.service';
-import { CreateUserDto } from '../dto/create-user.dto';
-import { UpdateUserDto } from '../dto/update-user.dto';
+import { UserService } from '../../shared/services/user.service';
+import { CreateUserDto } from '../../apps/users/dto/create-user.dto';
+import { UpdateUserDto } from '../../apps/users/dto/update-user.dto';
 import {
   Pagination,
   ValidationGuard,
   ApiPaginatedResponse,
   ApiLoggedResponse,
   PaginationQuery,
-} from '../../../common';
+} from '../../common';
 
 @Controller('users')
 @ApiLoggedResponse()

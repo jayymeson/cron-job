@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
-import { UserController } from './controllers/user.controller';
+import { UserController } from '../../infra/controllers/user.controller';
 import { UserService } from '../../shared/services/user.service';
 import { UserRepository } from '../../infra/repositories/user.repository';
 import { UpdateUsersTimestampUseCase } from './use-cases/update-users-timestamp.use-case';
