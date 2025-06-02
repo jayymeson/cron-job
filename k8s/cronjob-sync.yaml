@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: user-sync
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: app
+              image: cron-job-app:latest
+              imagePullPolicy: Never
+              command: ["node", "dist/scripts/sync-users.js"]
+              env:
+                - name: DATABASE_HOST
+                  value: "postgres-service"
+                - name: DATABASE_PORT
+                  value: "5432"
+                - name: DATABASE_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: cron-job-secrets
+                      key: DATABASE_USER
+                - name: DATABASE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: cron-job-secrets
+                      key: DATABASE_PASSWORD
+                - name: DATABASE_NAME
+                  value: "cronjob_db"
+                - name: EXTERNAL_DB_HOST
+                  value: "external-postgres"
+                - name: EXTERNAL_DB_PORT
+                  value: "5432"
+                - name: EXTERNAL_DB_USERNAME
+                  value: "external_user"
+                - name: EXTERNAL_DB_PASSWORD
+                  value: "external_pass"
+                - name: EXTERNAL_DB_NAME
+                  value: "external_db"
+          restartPolicy: OnFailure

@@ -4,7 +4,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { UserController } from '../../infra/controllers/user.controller';
 import { UserService } from '../../shared/services/user.service';
 import { UserRepository } from '../../infra/repositories/user.repository';
-import { UpdateUsersTimestampUseCase } from './use-cases/update-users-timestamp.use-case';
 import { User } from './entities/user.entity';
 
 @Module({
@@ -16,7 +15,6 @@ import { User } from './entities/user.entity';
       provide: 'IUserRepository',
       useClass: UserRepository,
     },
-    UpdateUsersTimestampUseCase,
   ],
   exports: [UserService],
 })

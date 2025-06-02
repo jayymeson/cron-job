@@ -33,6 +33,11 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy built application from builder stage
 COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
 
+# Copy source files needed for scripts
+COPY --from=builder --chown=nestjs:nodejs /app/src ./src
+COPY --from=builder --chown=nestjs:nodejs /app/tsconfig*.json ./
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+
 # Copy health check script
 COPY --chown=nestjs:nodejs health-check.cjs ./
 

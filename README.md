@@ -1,262 +1,168 @@
-# Cron Job NestJS Project
+# Kubernetes CronJob Data Synchronization
 
-Este projeto é um boilerplate NestJS estruturado com cron jobs, PostgreSQL e Docker.
+This project demonstrates a Kubernetes CronJob that synchronizes user data between an external PostgreSQL database and a local one running in the cluster.
 
-## Estrutura do Projeto
+## Architecture
 
-```
-app/
-├── src/
-│   ├── apps/
-│   │   └── users/
-│   │       ├── controllers/     # Controllers REST
-│   │       ├── use-cases/       # Use cases (incluindo cron jobs)
-│   │       ├── entities/        # Entidades do banco
-│   │       ├── interfaces/      # Interfaces e contratos
-│   │       └── dto/            # Data Transfer Objects
-│   ├── infra/
-│   │   ├── database/           # Configuração do banco
-│   │   └── repositories/       # Implementações dos repositórios
-│   ├── shared/
-│   │   ├── services/           # Serviços de negócio
-│   │   ├── exceptions/         # Exceções customizadas
-│   │   ├── scripts/            # Scripts utilitários
-│   │   └── config/            # Configurações
-│   └── common/                 # Utilitários comuns
-```
+- External PostgreSQL database running via Docker
+- Local PostgreSQL database running in Kubernetes
+- Kubernetes CronJob that runs every minute to sync data
 
-## Funcionalidades
+## Prerequisites
 
-- ✅ CRUD completo de usuários
-- ✅ Cron job que atualiza timestamp dos usuários a cada 5 minutos
-- ✅ PostgreSQL com TypeORM
-- ✅ Docker e Docker Compose
-- ✅ Validação de dados
-- ✅ Health check endpoint
-- ✅ Estrutura modular e escalável
-- ✅ Script de seed para popular o banco
-- ✅ Arquitetura limpa com separação de responsabilidades
+- Docker
+- Kubernetes (Minikube)
+- kubectl
+- Node.js 18+
 
-## Como executar
+## Setup Instructions
 
-### Opção 1: Usando Docker Compose (Recomendado para produção)
+### 1. Start Minikube
 
 ```bash
-docker-compose up --build
+# Start Minikube
+minikube start
+
+# Enable the ingress addon (if needed)
+minikube addons enable ingress
+
+# Verify Minikube is running
+minikube status
 ```
 
-### Opção 2: Script de desenvolvimento (Recomendado para desenvolvimento)
+### 2. Build and Load Docker Image
 
 ```bash
-./start-dev.sh
-```
+# Point your shell to minikube's docker-daemon
+eval $(minikube -p minikube docker-env)
 
-Este script irá:
-
-1. Verificar se o Docker está rodando
-2. Iniciar um container PostgreSQL
-3. Instalar dependências (se necessário)
-4. Popular o banco com dados de exemplo
-5. Iniciar a aplicação em modo desenvolvimento
-
-### Opção 3: Desenvolvimento manual
-
-1. Instale as dependências:
-
-```bash
+# Build the application image (from the app directory)
 cd app
-npm install
+docker build -t cron-job-app:latest .
+cd ..
+
+# Verify the image is built
+docker images | grep cron-job-app
 ```
 
-2. Configure o banco PostgreSQL local ou use Docker:
+### 3. Start External PostgreSQL Database
 
 ```bash
-docker run --name postgres-dev -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=cronjob_db -p 5432:5432 -d postgres:15-alpine
+# Start the external database
+docker-compose up -d external-postgres
+
+# Verify it's running
+docker ps | grep external-postgres
 ```
 
-3. Execute o seed do banco:
+### 4. Apply Kubernetes Manifests
+
+Apply the manifests in the following order:
 
 ```bash
-npm run seed
+# Create secrets first
+kubectl apply -f k8s/secret.yaml
+
+# Create ConfigMap
+kubectl apply -f k8s/configmap.yaml
+
+# Create local PostgreSQL database
+kubectl apply -f k8s/postgres.yaml
+
+# Wait for PostgreSQL to be ready
+kubectl wait --for=condition=ready pod -l app=postgres --timeout=120s
+
+# Create the CronJob
+kubectl apply -f k8s/cronjob-sync.yaml
 ```
 
-4. Execute a aplicação:
+### 5. Populate External Database
 
 ```bash
-npm run start:dev
+# Run the seed script
+npm run seed:external
 ```
 
-## Endpoints da API
-
-### Usuários
-
-- `GET /users` - Lista todos os usuários
-- `GET /users/:id` - Busca usuário por ID
-- `GET /users/status/active` - Lista usuários ativos
-- `POST /users` - Cria novo usuário
-- `PATCH /users/:id` - Atualiza usuário
-- `DELETE /users/:id` - Remove usuário
-
-### Health Check
-
-- `GET /health` - Status da aplicação
-
-## Exemplo de uso
-
-Você pode usar o arquivo `api-examples.http` para testar os endpoints ou usar curl:
-
-### Criar usuário
+### 6. Monitor the Synchronization
 
 ```bash
-curl -X POST http://localhost:3000/users \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "João Silva",
-    "email": "joao@example.com"
-  }'
+# Watch CronJobs, Jobs, and Pods
+watch -n 2 "kubectl get cronjobs,jobs,pods"
+
+# Check CronJob logs (replace <pod-name> with actual pod name)
+kubectl logs job/user-sync-<job-id>
+
+# Check data in local database
+kubectl exec -it postgres-<pod-id> -- psql -U postgres -d cronjob_db -c "SELECT * FROM users;"
 ```
 
-### Listar usuários
+## Useful Commands
 
 ```bash
-curl http://localhost:3000/users
+# Get all resources
+kubectl get all
+
+# Get CronJob details
+kubectl describe cronjob user-sync
+
+# Get logs from specific job
+kubectl logs job/user-sync-<job-id>
+
+# Delete all jobs
+kubectl delete jobs --all
+
+# Delete all failed pods
+kubectl delete pods --field-selector status.phase=Failed
 ```
 
-## Cron Job
+## Troubleshooting
 
-O cron job `UpdateUsersTimestampUseCase` executa automaticamente a cada 5 minutos e:
+### Image Pull Issues
 
-1. Busca todos os usuários ativos
-2. Atualiza o campo `updatedAt` de cada usuário
-3. Registra logs detalhados do processo
+If you see `ErrImagePull` or `ImagePullBackOff`:
 
-### Configuração do Cron Job
+1. Ensure you're using Minikube's Docker daemon: `eval $(minikube -p minikube docker-env)`
+2. Rebuild the image: `docker build -t cron-job-app:latest .`
+3. Delete the failed pods: `kubectl delete pods --field-selector status.phase=Failed`
 
-O cron job está configurado em `src/apps/users/use-cases/update-users-timestamp.use-case.ts`:
+### Database Connection Issues
 
-```typescript
-// Execute every 5 minutes
-this.updateUsersJob = "*/5 * * * *";
+1. Verify PostgreSQL is running: `kubectl get pods | grep postgres`
+2. Check PostgreSQL logs: `kubectl logs <postgres-pod-name>`
+3. Verify secrets are created: `kubectl get secrets`
+
+## Project Structure
+
+```
+.
+├── app/
+│   ├── src/
+│   │   ├── apps/
+│   │   │   └── users/
+│   │   │       ├── entities/
+│   │   │       │   └── user.entity.ts
+│   │   │       └── services/
+│   │   │           └── user-sync.service.ts
+│   │   └── scripts/
+│   │       └── sync-users.ts
+│   └── Dockerfile
+├── k8s/
+│   ├── configmap.yaml
+│   ├── cronjob-sync.yaml
+│   ├── postgres.yaml
+│   └── secret.yaml
+└── docker-compose.yaml
 ```
 
-Para alterar a frequência, modifique a expressão cron:
-
-- `*/1 * * * *` - A cada minuto
-- `*/10 * * * *` - A cada 10 minutos
-- `0 */1 * * *` - A cada hora
-- `0 0 * * *` - Todo dia à meia-noite
-
-## Configuração
-
-As configurações estão no arquivo `.env`:
-
-```env
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_USERNAME=postgres
-DATABASE_PASSWORD=postgres
-DATABASE_NAME=cronjob_db
-DATABASE_SYNC=true
-DATABASE_LOGGING=true
-NODE_ENV=development
-PORT=3000
-```
-
-## Scripts Disponíveis
+## Cleanup
 
 ```bash
-npm run start:dev    # Desenvolvimento com hot reload
-npm run build        # Build da aplicação
-npm run start:prod   # Produção
-npm run seed         # Popular banco com dados de exemplo
-npm run lint         # Verificar código
-npm run test         # Executar testes
+# Stop Minikube
+minikube stop
+
+# Delete Minikube cluster
+minikube delete
+
+# Stop Docker containers
+docker-compose down
 ```
-
-## Tecnologias Utilizadas
-
-- **NestJS** - Framework Node.js
-- **TypeORM** - ORM para TypeScript
-- **PostgreSQL** - Banco de dados
-- **Docker & Docker Compose** - Containerização
-- **Class Validator** - Validação de dados
-- **Cron Jobs** - Tarefas agendadas
-- **TypeScript** - Linguagem tipada
-
-## Logs
-
-Os logs do cron job incluem:
-
-- Início e fim da execução
-- Quantidade de usuários processados
-- Detalhes de cada usuário atualizado
-- Tratamento de erros
-
-Exemplo de log:
-
-```
-[UpdateUsersTimestampUseCase] Cron job "updateUsersTimestamp" started successfully
-[UpdateUsersTimestampUseCase] START UPDATE USERS TIMESTAMP
-[UpdateUsersTimestampUseCase] Found 4 active users to update
-[UpdateUsersTimestampUseCase] Updated timestamp for user: joao@example.com
-[UpdateUsersTimestampUseCase] Updated timestamp for user: maria@example.com
-[UpdateUsersTimestampUseCase] Updated timestamp for user: pedro@example.com
-[UpdateUsersTimestampUseCase] Updated timestamp for user: ana@example.com
-[UpdateUsersTimestampUseCase] FINISH UPDATE USERS TIMESTAMP
-```
-
-## Arquitetura
-
-O projeto segue os princípios da **Arquitetura Limpa**:
-
-- **Entities**: Modelos de domínio (`src/apps/users/entities/`)
-- **Use Cases**: Regras de negócio (`src/apps/users/use-cases/`)
-- **Interface Adapters**: Controllers e repositórios (`src/apps/users/controllers/`, `src/infra/repositories/`)
-- **Frameworks**: NestJS, TypeORM, etc.
-
-### Injeção de Dependência
-
-O projeto usa injeção de dependência com interfaces para facilitar testes e manutenção:
-
-```typescript
-// Interface
-export interface IUserRepository {
-  findAll(): Promise<User[]>;
-  // ...
-}
-
-// Implementação
-@Injectable()
-export class UserRepository implements IUserRepository {
-  // ...
-}
-
-// Uso no serviço
-@Injectable()
-export class UserService {
-  constructor(
-    @Inject("IUserRepository")
-    private readonly userRepository: IUserRepository
-  ) {}
-}
-```
-
-## Próximos Passos
-
-Para expandir o projeto, você pode:
-
-1. **Adicionar autenticação** com JWT
-2. **Implementar mais cron jobs** para diferentes funcionalidades
-3. **Adicionar testes unitários e de integração**
-4. **Implementar cache** com Redis
-5. **Adicionar monitoramento** com Prometheus/Grafana
-6. **Implementar rate limiting**
-7. **Adicionar documentação** com Swagger
-
-## Contribuição
-
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request

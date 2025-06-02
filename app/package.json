@@ -13,6 +13,8 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "seed": "ts-node -r tsconfig-paths/register src/shared/scripts/seed.ts",
+    "seed:external": "ts-node -r tsconfig-paths/register src/shared/scripts/seed-external-db.ts",
+    "seed:external:sql": "cat src/shared/scripts/seed-external.sql | docker compose exec -T external_postgres psql -U external_user -d external_db",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -40,6 +42,7 @@
     "typeorm": "^0.3.24"
   },
   "devDependencies": {
+    "@faker-js/faker": "^9.8.0",
     "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.0.0",
