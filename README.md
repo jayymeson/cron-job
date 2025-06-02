@@ -1,17 +1,18 @@
 # Sincronização de Dados entre Bancos PostgreSQL
 
-Este projeto demonstra uma sincronização de dados entre dois bancos PostgreSQL usando Docker Compose:
+Este projeto demonstra uma sincronização de dados entre dois bancos PostgreSQL, com suporte para dois ambientes:
 
-- Um banco PostgreSQL externo (simulando um banco de produção)
-- Um banco PostgreSQL interno (simulando um banco local)
+- Docker Compose (desenvolvimento local)
+- Kubernetes (produção)
 
 ## Pré-requisitos
 
-- Docker
-- Docker Compose
+- Docker e Docker Compose
+- Kubernetes (Minikube ou cluster)
+- kubectl
 - DBeaver (opcional, para visualização dos dados)
 
-## Como Executar
+## Opção 1: Executando com Docker Compose (Desenvolvimento)
 
 ### 1. Iniciar os Serviços
 
@@ -26,20 +27,9 @@ docker-compose up -d
 docker ps
 ```
 
-### 2. Criar Tabelas e Dados de Teste
+### 2. Criar Dados de Teste no Banco Externo
 
 ```bash
-# Criar tabela no banco externo
-docker exec external-postgres psql -U external_user -d external_db -c "
-CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);"
-
 # Inserir dados de teste
 docker exec external-postgres psql -U external_user -d external_db -c "
 INSERT INTO users (name, email) VALUES
@@ -48,28 +38,10 @@ INSERT INTO users (name, email) VALUES
 ('Teste 3', 'teste3@email.com');"
 ```
 
-### 3. Acessando os Bancos via DBeaver
-
-#### Banco Externo
-
-- Host: localhost
-- Port: 5433
-- Database: external_db
-- Username: external_user
-- Password: external_pass
-
-#### Banco Interno
-
-- Host: localhost
-- Port: 5432
-- Database: cronjob_db
-- Username: postgres
-- Password: postgres
-
-### 4. Monitoramento
+### 3. Monitorar a Sincronização
 
 ```bash
-# Ver logs da aplicação de sincronização
+# Ver logs da aplicação
 docker logs -f sync-app
 
 # Ver dados no banco externo
@@ -79,77 +51,158 @@ docker exec external-postgres psql -U external_user -d external_db -c "SELECT * 
 docker exec internal-postgres psql -U postgres -d cronjob_db -c "SELECT * FROM users;"
 ```
 
-### 5. Testando a Sincronização
+## Opção 2: Executando com Kubernetes (Produção)
 
-1. Adicione um novo usuário no banco externo:
+### 1. Configurar o Ambiente
 
 ```bash
-docker exec external-postgres psql -U external_user -d external_db -c "
-INSERT INTO users (name, email) VALUES ('Novo Usuario', 'novo@email.com');"
+# Iniciar o Minikube (se estiver usando localmente)
+minikube start
+
+# Configurar o Docker para usar o daemon do Minikube
+eval $(minikube -p minikube docker-env)
 ```
 
-2. Aguarde alguns segundos e verifique se o dado foi sincronizado no banco interno:
+### 2. Construir e Implantar
 
 ```bash
-docker exec internal-postgres psql -U postgres -d cronjob_db -c "SELECT * FROM users;"
+# Construir a imagem da aplicação
+docker build -t cron-job-app:latest ./app
+
+# Criar os recursos necessários
+kubectl apply -f k8s/secret.yaml
+kubectl apply -f k8s/postgres.yaml
+kubectl apply -f k8s/cronjob-sync.yaml
+
+# Verificar se tudo está rodando
+kubectl get all
 ```
 
-### 6. Parando os Serviços
+### 3. Configurar o Banco de Dados Externo
 
 ```bash
-# Parar todos os serviços
-docker-compose down
+# Criar tabela e inserir dados de teste
+kubectl exec -it postgres-<pod-id> -- psql -U postgres -d cronjob_db -c "
+INSERT INTO users (name, email) VALUES
+('Teste 1', 'teste1@email.com'),
+('Teste 2', 'teste2@email.com'),
+('Teste 3', 'teste3@email.com');"
+```
+
+### 4. Monitorar a Sincronização
+
+```bash
+# Ver detalhes do CronJob
+kubectl describe cronjob user-sync
+
+# Ver logs do job mais recente
+kubectl logs job/user-sync-<job-id>
+
+# Ver dados no banco local
+kubectl exec -it postgres-<pod-id> -- psql -U postgres -d cronjob_db -c "SELECT * FROM users;"
 ```
 
 ## Estrutura do Projeto
 
 ```
 .
-├── app/
+├── app/                      # Código da aplicação
 │   ├── src/
-│   │   ├── apps/
-│   │   │   └── users/
-│   │   │       ├── entities/
-│   │   │       │   └── user.entity.ts
-│   │   │       └── services/
-│   │   │           └── user-sync.service.ts
-│   │   └── scripts/
-│   │       └── sync-users.ts
+│   │   ├── apps/users/      # Módulos relacionados a usuários
+│   │   ├── scripts/         # Scripts de sincronização
+│   │   └── shared/          # Código compartilhado
 │   └── Dockerfile
-└── docker-compose.yaml
-```
-
-## Useful Commands
-
-```bash
-# Get all resources
-kubectl get all
-
-# Get CronJob details
-kubectl describe cronjob user-sync
-
-# Get logs from specific job
-kubectl logs job/user-sync-<job-id>
-
-# Delete all jobs
-kubectl delete jobs --all
-
-# Delete all failed pods
-kubectl delete pods --field-selector status.phase=Failed
+├── k8s/                     # Configurações Kubernetes
+│   ├── cronjob-sync.yaml    # CronJob para sincronização
+│   ├── postgres.yaml        # Deployment do PostgreSQL
+│   └── secret.yaml          # Secrets do Kubernetes
+└── docker-compose.yaml      # Configuração Docker Compose
 ```
 
 ## Troubleshooting
 
-### Image Pull Issues
+### Problemas com Docker Compose
 
-If you see `ErrImagePull` or `ImagePullBackOff`:
+1. **Containers não iniciam:**
 
-1. Ensure you're using Minikube's Docker daemon: `eval $(minikube -p minikube docker-env)`
-2. Rebuild the image: `docker build -t cron-job-app:latest .`
-3. Delete the failed pods: `kubectl delete pods --field-selector status.phase=Failed`
+   ```bash
+   # Verificar logs
+   docker-compose logs
 
-### Database Connection Issues
+   # Reiniciar serviços
+   docker-compose restart
+   ```
 
-1. Verify PostgreSQL is running: `kubectl get pods | grep postgres`
-2. Check PostgreSQL logs: `kubectl logs <postgres-pod-name>`
-3. Verify secrets are created: `kubectl get secrets`
+2. **Problemas de conexão com banco:**
+
+   ```bash
+   # Verificar se os containers estão rodando
+   docker ps
+
+   # Verificar logs específicos
+   docker logs external-postgres
+   docker logs internal-postgres
+   ```
+
+### Problemas com Kubernetes
+
+1. **Image Pull Issues:**
+
+   ```bash
+   # Verificar se está usando o daemon do Minikube
+   eval $(minikube -p minikube docker-env)
+
+   # Reconstruir a imagem
+   docker build -t cron-job-app:latest ./app
+   ```
+
+2. **Pods não iniciam:**
+
+   ```bash
+   # Verificar status dos pods
+   kubectl get pods
+
+   # Ver logs detalhados
+   kubectl describe pod <pod-name>
+   ```
+
+3. **Problemas com CronJob:**
+
+   ```bash
+   # Verificar status
+   kubectl get cronjobs
+
+   # Ver logs do último job
+   kubectl logs job/user-sync-<job-id>
+   ```
+
+## Comandos Úteis
+
+### Docker Compose
+
+```bash
+# Iniciar serviços em background
+docker-compose up -d
+
+# Parar serviços
+docker-compose down
+
+# Ver logs
+docker-compose logs -f
+```
+
+### Kubernetes
+
+```bash
+# Ver todos os recursos
+kubectl get all
+
+# Ver logs de um pod
+kubectl logs <pod-name>
+
+# Executar comando em um pod
+kubectl exec -it <pod-name> -- /bin/bash
+
+# Deletar todos os jobs
+kubectl delete jobs --all
+```
