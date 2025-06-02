@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { UsersModule } from './apps/users/users.module';
 import { getDatabaseConfig } from './infra/database/database.config';
 import { appConfig, paginationConfig } from './shared/config';
+import { SyncController } from './infra/controllers/sync.controller';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { appConfig, paginationConfig } from './shared/config';
     }),
     UsersModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, SyncController],
   providers: [AppService],
 })
 export class AppModule {}

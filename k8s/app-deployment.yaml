@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sync-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sync-app
+  template:
+    metadata:
+      labels:
+        app: sync-app
+    spec:
+      containers:
+        - name: app
+          image: cron-job-app:latest
+          imagePullPolicy: Never
+          command: ["npm", "run", "start:prod"]
+          ports:
+            - containerPort: 3000
+          env:
+            # Banco interno (rodando no Docker Compose)
+            - name: DATABASE_HOST
+              value: "host.minikube.internal"
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: DATABASE_USERNAME
+              value: "postgres"
+            - name: DATABASE_PASSWORD
+              value: "postgres"
+            - name: DATABASE_NAME
+              value: "cronjob_db"
+            # Banco externo (rodando no Docker Compose)
+            - name: EXTERNAL_DB_HOST
+              value: "host.minikube.internal"
+            - name: EXTERNAL_DB_PORT
+              value: "5433"
+            - name: EXTERNAL_DB_USERNAME
+              value: "external_user"
+            - name: EXTERNAL_DB_PASSWORD
+              value: "external_pass"
+            - name: EXTERNAL_DB_NAME
+              value: "external_db"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sync-app
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+      targetPort: 3000
+  selector:
+    app: sync-app

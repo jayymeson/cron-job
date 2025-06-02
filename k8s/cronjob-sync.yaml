@@ -14,8 +14,9 @@ spec:
               imagePullPolicy: Never
               command: ["node", "dist/scripts/sync-users.js"]
               env:
+                # Banco interno (rodando no Docker Compose)
                 - name: DATABASE_HOST
-                  value: "postgres-service"
+                  value: "host.minikube.internal"
                 - name: DATABASE_PORT
                   value: "5432"
                 - name: DATABASE_USERNAME
@@ -24,6 +25,7 @@ spec:
                   value: "postgres"
                 - name: DATABASE_NAME
                   value: "cronjob_db"
+                # Banco externo (rodando no Docker Compose)
                 - name: EXTERNAL_DB_HOST
                   value: "host.minikube.internal"
                 - name: EXTERNAL_DB_PORT

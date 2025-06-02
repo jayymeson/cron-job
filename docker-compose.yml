@@ -11,6 +11,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts/internal:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     networks:
@@ -29,6 +30,8 @@ services:
       POSTGRES_USER: external_user
       POSTGRES_PASSWORD: external_pass
       POSTGRES_DB: external_db
+    volumes:
+      - ./init-scripts/external:/docker-entrypoint-initdb.d
     ports:
       - "5433:5432"
     networks:
@@ -38,35 +41,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  sync-app:
-    build:
-      context: ./app
-      dockerfile: Dockerfile
-    container_name: sync-app
-    environment:
-      DATABASE_HOST: internal-postgres
-      DATABASE_PORT: 5432
-      DATABASE_USERNAME: postgres
-      DATABASE_PASSWORD: postgres
-      DATABASE_NAME: cronjob_db
-      DATABASE_SYNC: true
-      DATABASE_LOGGING: true
-      EXTERNAL_DB_HOST: external-postgres
-      EXTERNAL_DB_PORT: 5432
-      EXTERNAL_DB_USERNAME: external_user
-      EXTERNAL_DB_PASSWORD: external_pass
-      EXTERNAL_DB_NAME: external_db
-      NODE_ENV: development
-    depends_on:
-      internal-postgres:
-        condition: service_healthy
-      external-postgres:
-        condition: service_healthy
-    networks:
-      - cronjob_network
-    command: ["node", "dist/scripts/sync-users.js"]
-    restart: always
 
 volumes:
   postgres_data:

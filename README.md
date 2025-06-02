@@ -53,7 +53,19 @@ docker exec internal-postgres psql -U postgres -d cronjob_db -c "SELECT * FROM u
 
 ## Opção 2: Executando com Kubernetes (Produção)
 
-### 1. Configurar o Ambiente
+### 1. Iniciar os Bancos de Dados (Necessário)
+
+Primeiro, precisamos iniciar os bancos de dados usando Docker Compose. Para isso, use uma versão modificada do docker-compose.yml que contém apenas os serviços de banco de dados:
+
+```bash
+# Iniciar apenas os bancos de dados
+docker-compose up -d internal-postgres external-postgres
+
+# Verificar se os bancos estão rodando
+docker ps
+```
+
+### 2. Configurar o Ambiente Kubernetes
 
 ```bash
 # Iniciar o Minikube (se estiver usando localmente)
@@ -63,44 +75,91 @@ minikube start
 eval $(minikube -p minikube docker-env)
 ```
 
-### 2. Construir e Implantar
+### 3. Construir e Implantar
 
 ```bash
 # Construir a imagem da aplicação
 docker build -t cron-job-app:latest ./app
 
-# Criar os recursos necessários
-kubectl apply -f k8s/secret.yaml
-kubectl apply -f k8s/postgres.yaml
-kubectl apply -f k8s/cronjob-sync.yaml
+# Aplicar as configurações do Kubernetes
+kubectl apply -f k8s/
 
 # Verificar se tudo está rodando
 kubectl get all
 ```
 
-### 3. Configurar o Banco de Dados Externo
+### 4. Iniciar a Sincronização
 
 ```bash
-# Criar tabela e inserir dados de teste
-kubectl exec -it postgres-<pod-id> -- psql -U postgres -d cronjob_db -c "
-INSERT INTO users (name, email) VALUES
-('Teste 1', 'teste1@email.com'),
-('Teste 2', 'teste2@email.com'),
-('Teste 3', 'teste3@email.com');"
+# Ativar o CronJob (por padrão inicia suspenso)
+kubectl patch cronjob user-sync -p '{"spec":{"suspend":false}}'
+
+# Verificar status do CronJob
+kubectl get cronjobs
 ```
 
-### 4. Monitorar a Sincronização
+### 5. Monitorar a Sincronização
 
 ```bash
 # Ver detalhes do CronJob
 kubectl describe cronjob user-sync
 
-# Ver logs do job mais recente
+# Ver logs do job mais recente (substitua <job-id> pelo ID real)
 kubectl logs job/user-sync-<job-id>
-
-# Ver dados no banco local
-kubectl exec -it postgres-<pod-id> -- psql -U postgres -d cronjob_db -c "SELECT * FROM users;"
 ```
+
+### 6. Verificar os Dados
+
+Você pode usar o DBeaver ou qualquer outro cliente SQL para verificar os dados:
+
+- Banco interno (local): localhost:5432
+
+  - Usuário: postgres
+  - Senha: postgres
+  - Database: cronjob_db
+
+- Banco externo (local): localhost:5433
+  - Usuário: external_user
+  - Senha: external_pass
+  - Database: external_db
+
+### 7. Parar o Ambiente (Quando Necessário)
+
+```bash
+# Parar o Minikube
+minikube stop
+
+# Parar os bancos de dados
+docker-compose down
+```
+
+### 8. Endpoints de Sincronização
+
+O sistema possui dois endpoints para controlar a sincronização:
+
+#### Iniciar Sincronização
+
+```bash
+# Inicia a sincronização imediatamente e ativa o CronJob
+curl -X POST http://localhost:3000/sync/start
+```
+
+Este endpoint:
+
+1. Executa uma sincronização imediata
+2. Ativa o CronJob que continuará sincronizando a cada minuto
+
+#### Parar Sincronização
+
+```bash
+# Suspende o CronJob de sincronização
+curl -X POST http://localhost:3000/sync/stop
+```
+
+Este endpoint:
+
+1. Suspende o CronJob, interrompendo as sincronizações automáticas
+2. Mantém os dados já sincronizados
 
 ## Estrutura do Projeto
 

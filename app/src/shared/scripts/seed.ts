@@ -27,25 +27,21 @@ async function seed() {
     },
   ];
 
-  logger.log('🌱 Starting database seeding...');
-
   for (const userData of users) {
     try {
       const user = await userService.create(userData);
-      logger.log(`✅ Created user: ${user.name} (${user.email})`);
+      logger.log(`Created user: ${user.name} (${user.email})`);
     } catch (error) {
-      logger.warn(
-        `⚠️  User ${userData.email} already exists or error occurred`,
-      );
+      logger.warn(`User ${userData.email} already exists or error occurred`);
     }
   }
 
-  logger.log('🎉 Database seeding completed!');
+  logger.log('Database seeding completed!');
   await app.close();
 }
 
 seed().catch((error) => {
   const logger = new Logger('DatabaseSeed');
-  logger.error('❌ Seeding failed:', error);
+  logger.error('Seeding failed:', error);
   process.exit(1);
 });
