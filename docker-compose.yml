@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  postgres:
+  internal-postgres:
     image: postgres:15-alpine
-    container_name: cronjob_postgres
+    container_name: internal-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -31,50 +31,42 @@ services:
       POSTGRES_DB: external_db
     ports:
       - "5433:5432"
+    networks:
+      - cronjob_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U external_user -d external_db"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  app:
+  sync-app:
     build:
       context: ./app
       dockerfile: Dockerfile
-    container_name: cronjob_app
+    container_name: sync-app
     environment:
-      DATABASE_HOST: postgres
+      DATABASE_HOST: internal-postgres
       DATABASE_PORT: 5432
       DATABASE_USERNAME: postgres
       DATABASE_PASSWORD: postgres
       DATABASE_NAME: cronjob_db
       DATABASE_SYNC: true
       DATABASE_LOGGING: true
-      EXTERNAL_DB_HOST: external_postgres
+      EXTERNAL_DB_HOST: external-postgres
       EXTERNAL_DB_PORT: 5432
       EXTERNAL_DB_USERNAME: external_user
       EXTERNAL_DB_PASSWORD: external_pass
       EXTERNAL_DB_NAME: external_db
-      NODE_ENV: production
-      PORT: 3000
-    ports:
-      - "3000:3000"
+      NODE_ENV: development
     depends_on:
-      postgres:
+      internal-postgres:
         condition: service_healthy
       external-postgres:
         condition: service_healthy
     networks:
       - cronjob_network
-    volumes:
-      - ./app/logs:/app/logs
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    command: ["node", "dist/scripts/sync-users.js"]
+    restart: always
 
 volumes:
   postgres_data:

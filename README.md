@@ -1,99 +1,122 @@
-# Kubernetes CronJob Data Synchronization
+# Sincronização de Dados entre Bancos PostgreSQL
 
-This project demonstrates a Kubernetes CronJob that synchronizes user data between an external PostgreSQL database and a local one running in the cluster.
+Este projeto demonstra uma sincronização de dados entre dois bancos PostgreSQL usando Docker Compose:
 
-## Architecture
+- Um banco PostgreSQL externo (simulando um banco de produção)
+- Um banco PostgreSQL interno (simulando um banco local)
 
-- External PostgreSQL database running via Docker
-- Local PostgreSQL database running in Kubernetes
-- Kubernetes CronJob that runs every minute to sync data
-
-## Prerequisites
+## Pré-requisitos
 
 - Docker
-- Kubernetes (Minikube)
-- kubectl
-- Node.js 18+
+- Docker Compose
+- DBeaver (opcional, para visualização dos dados)
 
-## Setup Instructions
+## Como Executar
 
-### 1. Start Minikube
+### 1. Iniciar os Serviços
 
 ```bash
-# Start Minikube
-minikube start
+# Parar containers existentes (se houver)
+docker-compose down
 
-# Enable the ingress addon (if needed)
-minikube addons enable ingress
+# Iniciar todos os serviços
+docker-compose up -d
 
-# Verify Minikube is running
-minikube status
+# Verificar se os containers estão rodando
+docker ps
 ```
 
-### 2. Build and Load Docker Image
+### 2. Criar Tabelas e Dados de Teste
 
 ```bash
-# Point your shell to minikube's docker-daemon
-eval $(minikube -p minikube docker-env)
+# Criar tabela no banco externo
+docker exec external-postgres psql -U external_user -d external_db -c "
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);"
 
-# Build the application image (from the app directory)
-cd app
-docker build -t cron-job-app:latest .
-cd ..
-
-# Verify the image is built
-docker images | grep cron-job-app
+# Inserir dados de teste
+docker exec external-postgres psql -U external_user -d external_db -c "
+INSERT INTO users (name, email) VALUES
+('Teste 1', 'teste1@email.com'),
+('Teste 2', 'teste2@email.com'),
+('Teste 3', 'teste3@email.com');"
 ```
 
-### 3. Start External PostgreSQL Database
+### 3. Acessando os Bancos via DBeaver
+
+#### Banco Externo
+
+- Host: localhost
+- Port: 5433
+- Database: external_db
+- Username: external_user
+- Password: external_pass
+
+#### Banco Interno
+
+- Host: localhost
+- Port: 5432
+- Database: cronjob_db
+- Username: postgres
+- Password: postgres
+
+### 4. Monitoramento
 
 ```bash
-# Start the external database
-docker-compose up -d external-postgres
+# Ver logs da aplicação de sincronização
+docker logs -f sync-app
 
-# Verify it's running
-docker ps | grep external-postgres
+# Ver dados no banco externo
+docker exec external-postgres psql -U external_user -d external_db -c "SELECT * FROM users;"
+
+# Ver dados no banco interno
+docker exec internal-postgres psql -U postgres -d cronjob_db -c "SELECT * FROM users;"
 ```
 
-### 4. Apply Kubernetes Manifests
+### 5. Testando a Sincronização
 
-Apply the manifests in the following order:
+1. Adicione um novo usuário no banco externo:
 
 ```bash
-# Create secrets first
-kubectl apply -f k8s/secret.yaml
-
-# Create ConfigMap
-kubectl apply -f k8s/configmap.yaml
-
-# Create local PostgreSQL database
-kubectl apply -f k8s/postgres.yaml
-
-# Wait for PostgreSQL to be ready
-kubectl wait --for=condition=ready pod -l app=postgres --timeout=120s
-
-# Create the CronJob
-kubectl apply -f k8s/cronjob-sync.yaml
+docker exec external-postgres psql -U external_user -d external_db -c "
+INSERT INTO users (name, email) VALUES ('Novo Usuario', 'novo@email.com');"
 ```
 
-### 5. Populate External Database
+2. Aguarde alguns segundos e verifique se o dado foi sincronizado no banco interno:
 
 ```bash
-# Run the seed script
-npm run seed:external
+docker exec internal-postgres psql -U postgres -d cronjob_db -c "SELECT * FROM users;"
 ```
 
-### 6. Monitor the Synchronization
+### 6. Parando os Serviços
 
 ```bash
-# Watch CronJobs, Jobs, and Pods
-watch -n 2 "kubectl get cronjobs,jobs,pods"
+# Parar todos os serviços
+docker-compose down
+```
 
-# Check CronJob logs (replace <pod-name> with actual pod name)
-kubectl logs job/user-sync-<job-id>
+## Estrutura do Projeto
 
-# Check data in local database
-kubectl exec -it postgres-<pod-id> -- psql -U postgres -d cronjob_db -c "SELECT * FROM users;"
+```
+.
+├── app/
+│   ├── src/
+│   │   ├── apps/
+│   │   │   └── users/
+│   │   │       ├── entities/
+│   │   │       │   └── user.entity.ts
+│   │   │       └── services/
+│   │   │           └── user-sync.service.ts
+│   │   └── scripts/
+│   │       └── sync-users.ts
+│   └── Dockerfile
+└── docker-compose.yaml
 ```
 
 ## Useful Commands
@@ -130,39 +153,3 @@ If you see `ErrImagePull` or `ImagePullBackOff`:
 1. Verify PostgreSQL is running: `kubectl get pods | grep postgres`
 2. Check PostgreSQL logs: `kubectl logs <postgres-pod-name>`
 3. Verify secrets are created: `kubectl get secrets`
-
-## Project Structure
-
-```
-.
-├── app/
-│   ├── src/
-│   │   ├── apps/
-│   │   │   └── users/
-│   │   │       ├── entities/
-│   │   │       │   └── user.entity.ts
-│   │   │       └── services/
-│   │   │           └── user-sync.service.ts
-│   │   └── scripts/
-│   │       └── sync-users.ts
-│   └── Dockerfile
-├── k8s/
-│   ├── configmap.yaml
-│   ├── cronjob-sync.yaml
-│   ├── postgres.yaml
-│   └── secret.yaml
-└── docker-compose.yaml
-```
-
-## Cleanup
-
-```bash
-# Stop Minikube
-minikube stop
-
-# Delete Minikube cluster
-minikube delete
-
-# Stop Docker containers
-docker-compose down
-```

@@ -19,21 +19,15 @@ spec:
                 - name: DATABASE_PORT
                   value: "5432"
                 - name: DATABASE_USERNAME
-                  valueFrom:
-                    secretKeyRef:
-                      name: cron-job-secrets
-                      key: DATABASE_USER
+                  value: "postgres"
                 - name: DATABASE_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: cron-job-secrets
-                      key: DATABASE_PASSWORD
+                  value: "postgres"
                 - name: DATABASE_NAME
                   value: "cronjob_db"
                 - name: EXTERNAL_DB_HOST
-                  value: "external-postgres"
+                  value: "host.minikube.internal"
                 - name: EXTERNAL_DB_PORT
-                  value: "5432"
+                  value: "5433"
                 - name: EXTERNAL_DB_USERNAME
                   value: "external_user"
                 - name: EXTERNAL_DB_PASSWORD

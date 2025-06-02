@@ -16,6 +16,8 @@ export class UserSyncService {
 
   async syncFromExternalDb() {
     const startTime = Date.now();
+    this.logger.log('Starting sync process...');
+
     const externalConnection = await createConnection({
       name: `external-${Date.now()}`,
       type: 'postgres',
@@ -28,17 +30,23 @@ export class UserSyncService {
     });
 
     try {
+      this.logger.log('Connected to external database');
       const externalUsers = await externalConnection.getRepository(User).find();
+      this.logger.log(
+        `Found ${externalUsers.length} users in external database`,
+      );
 
       let created = 0;
       let updated = 0;
 
       for (const externalUser of externalUsers) {
+        this.logger.log(`Processing user: ${externalUser.email}`);
         const existingUser = await this.userRepository.findOne({
           where: { email: externalUser.email },
         });
 
         if (existingUser) {
+          this.logger.log(`Updating user: ${externalUser.email}`);
           await this.userRepository.update(existingUser.id, {
             name: externalUser.name,
             isActive: externalUser.isActive,
@@ -46,6 +54,7 @@ export class UserSyncService {
           });
           updated++;
         } else {
+          this.logger.log(`Creating user: ${externalUser.email}`);
           await this.userRepository.save({
             ...externalUser,
             id: undefined,
@@ -61,6 +70,7 @@ export class UserSyncService {
         `Sync completed in ${duration}ms. Created: ${created}, Updated: ${updated}`,
       );
     } catch (error) {
+      this.logger.error('Error during sync:', error);
       process.exit(1);
     } finally {
       await externalConnection.close();
