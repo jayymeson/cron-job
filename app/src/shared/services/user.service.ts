@@ -1,5 +1,5 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { IUserRepository } from '../../apps/users/interfaces';
+import { IUserRepository } from '../../apps/users/interfaces/user-repository.interface';
 import { User } from '../../apps/users/entities/user.entity';
 import { CreateUserDto } from '../../apps/users/dto/create-user.dto';
 import { UpdateUserDto } from '../../apps/users/dto/update-user.dto';
@@ -51,12 +51,8 @@ export class UserService {
     return user;
   }
 
-  async findByEmail(email: string): Promise<User> {
-    const user = await this.userRepository.findByEmail(email);
-    if (!user) {
-      throw new UserNotFoundException(email);
-    }
-    return user;
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findByEmail(email);
   }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
@@ -86,7 +82,7 @@ export class UserService {
   }
 
   async delete(id: string): Promise<void> {
-    const user = await this.findById(id); // Check if user exists
+    const user = await this.findById(id);
     await this.userRepository.delete(id);
     this.logger.log(`🗑️  Deleted user: ${user.email}`);
   }
@@ -105,5 +101,13 @@ export class UserService {
     } catch (error) {
       throw new UserUpdateFailedException(user.id, 'timestamp update failed');
     }
+  }
+
+  async bulkUpsert(users: Partial<User>[]): Promise<User[]> {
+    return this.userRepository.bulkUpsert(users);
+  }
+
+  async clear(): Promise<void> {
+    return this.userRepository.clear();
   }
 }
